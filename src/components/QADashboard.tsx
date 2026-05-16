@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Department, Program, GA, OBEData, ProgramObjective } from '../types';
-import rawData from '../data.json';
-import { LayoutDashboard, Users, Building2, ChevronRight, Save, Undo2, CheckSquare, Square, LogOut, Target } from 'lucide-react';
+import { apiService } from '../services/apiService';
+import { LayoutDashboard, Users, Building2, ChevronRight, Save, Undo2, CheckSquare, Square, LogOut, Target, Loader2, AlertCircle } from 'lucide-react';
 
 interface QADashboardProps {
   onLogout: () => void;
 }
 
 export default function QADashboard({ onLogout }: QADashboardProps) {
-  const [data, setData] = useState<OBEData>(rawData as OBEData);
+  const [data, setData] = useState<OBEData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'departments' | 'instructors'>('departments');
   const [selectedDept, setSelectedDept] = useState<Department | null>(null);
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
@@ -21,6 +23,25 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
 
   // Edit states for program objectives
   const [editPOs, setEditPOs] = useState<ProgramObjective[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  const fetchInitialData = async () => {
+    try {
+      setLoading(true);
+      const fetchedData = await apiService.getAllData();
+      setData(fetchedData);
+      setError(null);
+    } catch (err) {
+      setError('Could not connect to Django backend. Ensure it is running at localhost:8000 and CORS is enabled.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedProgram) {
@@ -35,28 +56,46 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
     }
   }, [selectedDept]);
 
-  const handleSaveDepartment = () => {
-    if (!selectedDept) return;
-    const updatedDepts = data.departments.map(d => 
-      d.id === selectedDept.id ? { ...d, vision: editDeptVision, mission: editDeptMission } : d
-    );
-    setData({ ...data, departments: updatedDepts });
-    setSelectedDept({ ...selectedDept, vision: editDeptVision, mission: editDeptMission });
-    setIsEditingDept(false);
+  const handleSaveDepartment = async () => {
+    if (!selectedDept || !data) return;
+    try {
+      setIsSaving(true);
+      const updated = await apiService.updateDepartment(selectedDept.id, {
+        vision: editDeptVision,
+        mission: editDeptMission
+      });
+      
+      const updatedDepts = data.departments.map(d => 
+        d.id === selectedDept.id ? updated : d
+      );
+      setData({ ...data, departments: updatedDepts });
+      setSelectedDept(updated);
+      setIsEditingDept(false);
+    } catch (err) {
+      alert('Failed to save to backend.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSaveProgram = () => {
-    if (!selectedProgram) return;
+  const handleSaveProgram = async () => {
+    if (!selectedProgram || !data) return;
+    try {
+      setIsSaving(true);
+      const updated = await apiService.updateProgram(selectedProgram.id, { pos: editPOs });
+      
+      const updatedPrograms = data.programs.map(p => 
+        p.id === selectedProgram.id ? updated : p
+      );
 
-    const updatedPrograms = data.programs.map(p => 
-      p.id === selectedProgram.id 
-        ? { ...p, pos: editPOs }
-        : p
-    );
-
-    setData({ ...data, programs: updatedPrograms });
-    setSelectedProgram({ ...selectedProgram, pos: editPOs });
-    alert('Program Objectives and GA mappings saved locally!');
+      setData({ ...data, programs: updatedPrograms });
+      setSelectedProgram(updated);
+      alert('Changes saved to backend successfully!');
+    } catch (err) {
+      alert('Failed to save program changes.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePOToggleGA = (poIdx: number, gaId: string) => {
@@ -120,10 +159,26 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto flex">
-        {/* Cascade Navigation */}
-        <div className="flex-1 flex overflow-hidden">
-          
-          <AnimatePresence mode="wait">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center w-full h-full text-center">
+            <Loader2 className="w-8 h-8 animate-spin mb-4 opacity-40" />
+            <p className="font-mono text-xs opacity-50 uppercase tracking-widest">Hydrating data from server...</p>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center w-full h-full p-8 text-center max-w-md mx-auto">
+            <AlertCircle className="w-12 h-12 text-red-500 mb-6" />
+            <h3 className="text-2xl font-display font-medium mb-4">Connection Failed</h3>
+            <p className="font-sans text-gray-500 mb-8">{error}</p>
+            <button 
+              onClick={fetchInitialData}
+              className="px-8 py-3 bg-[#141414] text-[#E4E3E0] font-mono text-xs uppercase tracking-widest"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : !data ? null : (
+          <div className="flex-1 flex overflow-hidden">
+            <AnimatePresence mode="wait">
             {/* View 1: List of Departments or Instructors */}
             {activeTab === 'instructors' ? (
                <motion.div 
@@ -270,16 +325,23 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
                     </div>
                     <div className="flex gap-3">
                       <button 
+                        disabled={isSaving}
                         onClick={() => setSelectedProgram(null)}
-                        className="flex items-center gap-2 px-4 py-2 border border-[#141414] font-mono text-xs hover:bg-black/5"
+                        className="flex items-center gap-2 px-4 py-2 border border-[#141414] font-mono text-xs hover:bg-black/5 disabled:opacity-50"
                       >
                         <Undo2 className="w-3 h-3" /> CANCEL
                       </button>
                       <button 
+                         disabled={isSaving}
                          onClick={handleSaveProgram}
-                         className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-[#E4E3E0] font-mono text-xs hover:bg-[#141414]/90"
+                         className="flex items-center gap-2 px-4 py-2 bg-[#141414] text-[#E4E3E0] font-mono text-xs hover:bg-[#141414]/90 disabled:opacity-50"
                       >
-                        <Save className="w-3 h-3" /> SAVE CHANGES
+                        {isSaving ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Save className="w-3 h-3" />
+                        )}
+                        {isSaving ? 'SAVING...' : 'SAVE CHANGES'}
                       </button>
                     </div>
                   </div>
@@ -353,8 +415,8 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
               </motion.div>
             )}
           </AnimatePresence>
-
         </div>
+      )}
       </main>
     </div>
   );
