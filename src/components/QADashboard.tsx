@@ -36,7 +36,7 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
       setData(fetchedData);
       setError(null);
     } catch (err) {
-      setError('Could not connect to Django backend. Ensure it is running at localhost:8000 and CORS is enabled.');
+      setError('Could not connect to Django backend. Ensure it is running and accessible.');
       console.error(err);
     } finally {
       setLoading(false);
