@@ -142,7 +142,11 @@ export default function Login({ onLogin }: LoginProps) {
           </button>
         </form>
 
-        
+        <div className="mt-8 text-center">
+          <button type="button" className="text-gray-400 font-sans text-sm hover:text-gray-600 transition-colors">
+            Register new account
+          </button>
+        </div>
       </motion.div>
     </div>
   );
