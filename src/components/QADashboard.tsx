@@ -45,7 +45,19 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
 
   useEffect(() => {
     if (selectedProgram) {
-      setEditPOs(JSON.parse(JSON.stringify(selectedProgram.pos)));
+      const currentPOs = JSON.parse(JSON.stringify(selectedProgram.pos)) as ProgramObjective[];
+      const paddedPOs = [...currentPOs];
+      
+      // Always ensure exactly 4 slots
+      while (paddedPOs.length < 4) {
+        paddedPOs.push({
+          id: `PO${paddedPOs.length + 1}`,
+          text: '',
+          mappedGAs: []
+        });
+      }
+      
+      setEditPOs(paddedPOs.slice(0, 4));
     }
   }, [selectedProgram]);
 
@@ -292,7 +304,9 @@ export default function QADashboard({ onLogout }: QADashboardProps) {
                         <span className="font-mono text-sm p-2 bg-gray-100 rounded">{prog.code}</span>
                         <div>
                           <span className="block font-display text-xl font-medium">{prog.name}</span>
-                          <span className="font-mono text-[10px] opacity-50 uppercase">{prog.pos.length} OBJECTIVES DEFINED</span>
+                          <span className="font-mono text-[10px] opacity-50 uppercase">
+                            {prog.pos.filter(po => po.text.trim()).length} / 4 OBJECTIVES DEFINED
+                          </span>
                         </div>
                       </div>
                       <ChevronRight className="w-5 h-5" />
