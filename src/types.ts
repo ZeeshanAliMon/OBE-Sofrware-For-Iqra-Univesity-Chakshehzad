@@ -1,4 +1,4 @@
-export type UserType = 'student' | 'instructor' | 'QA';
+export type UserType = 'student' | 'instructor' | 'QA' | 'admin';
 
 export interface GA {
   id: string;

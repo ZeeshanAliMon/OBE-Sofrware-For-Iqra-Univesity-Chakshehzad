@@ -34,7 +34,7 @@ export default function App() {
           >
             <Login onLogin={handleLogin} />
           </motion.div>
-        ) : currentUser.type === 'QA' ? (
+        ) : (currentUser.type === 'QA' || currentUser.type === 'admin') ? (
           <motion.div
             key="qa-dashboard"
             initial={{ opacity: 0 }}
