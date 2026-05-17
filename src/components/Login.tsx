@@ -61,7 +61,7 @@ export default function Login({ onLogin }: LoginProps) {
         className="bg-white p-8 md:p-12 rounded-[32px] shadow-sm max-w-lg w-full"
       >
         <div className="mb-10 text-center">
-          <h1 className="text-4xl font-display font-medium text-gray-900 tracking-tight mb-2">UniOBE</h1>
+          <h1 className="text-4xl font-display font-medium text-gray-900 tracking-tight mb-2">Iqra University OBE</h1>
           <p className="text-gray-500 font-sans">University Outcome Based Education Manager</p>
         </div>
 
