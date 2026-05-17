@@ -9,23 +9,48 @@ interface LoginProps {
 
 export default function Login({ onLogin }: LoginProps) {
   const [userType, setUserType] = useState<UserType>('student');
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name === 'zeeshan' && password === 'zeeshan') {
-      onLogin(userType, name);
-    } else {
-      setError('Invalid name or password (hint: zeeshan/zeeshan)');
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:8000/api/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Invalid username or password');
+        return;
+      }
+
+      // Save tokens
+      localStorage.setItem('access',  data.access);
+      localStorage.setItem('refresh', data.refresh);
+
+      // Use role from Django instead of the UI selector
+      onLogin(data.user.user_type as UserType, data.user.username);
+
+    } catch (err) {
+      setError('Cannot connect to server. Is Django running?');
+    } finally {
+      setLoading(false);
     }
   };
 
   const userTypes: { type: UserType; label: string; icon: any }[] = [
-    { type: 'student', label: 'Student', icon: GraduationCap },
-    { type: 'instructor', label: 'Instructor', icon: BookOpen },
-    { type: 'QA', label: 'QA / Quality Assurance', icon: ShieldCheck },
+    { type: 'student',    label: 'Student',               icon: GraduationCap },
+    { type: 'instructor', label: 'Instructor',             icon: BookOpen      },
+    { type: 'QA',         label: 'QA / Quality Assurance', icon: ShieldCheck   },
   ];
 
   return (
@@ -41,6 +66,7 @@ export default function Login({ onLogin }: LoginProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* User type selector — visual only, actual role comes from Django */}
           <div className="grid grid-cols-1 gap-3">
             <span className="text-xs font-sans font-semibold uppercase tracking-wider text-gray-400 ml-1">
               Select User Type
@@ -71,26 +97,26 @@ export default function Login({ onLogin }: LoginProps) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-sans font-semibold uppercase tracking-wider text-gray-400 ml-1 mb-2">
-                Program / Full Name
+                Username
               </label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="zeeshan"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Enter your username"
                 className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-sans focus:ring-2 focus:ring-gray-900/10 transition-all outline-none"
                 required
               />
             </div>
             <div>
               <label className="block text-xs font-sans font-semibold uppercase tracking-wider text-gray-400 ml-1 mb-2">
-                Access Token / Password
+                Password
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="zeeshan"
+                placeholder="Enter your password"
                 className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-sans focus:ring-2 focus:ring-gray-900/10 transition-all outline-none"
                 required
               />
@@ -109,9 +135,10 @@ export default function Login({ onLogin }: LoginProps) {
 
           <button
             type="submit"
-            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-sans font-semibold hover:bg-gray-800 active:scale-[0.98] transition-all shadow-lg shadow-gray-900/20"
+            disabled={loading}
+            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-sans font-semibold hover:bg-gray-800 active:scale-[0.98] transition-all shadow-lg shadow-gray-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Enter Dashboard
+            {loading ? 'Signing in...' : 'Enter Dashboard'}
           </button>
         </form>
 
